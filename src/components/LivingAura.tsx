@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { AuraMode } from '../types/workout';
+import { AuraMode, ThemeMode } from '../types/workout';
 
 interface LivingAuraProps {
   mode: AuraMode;
+  theme: ThemeMode;
   bpm?: number | null;
 }
 
-const PALETTES: Record<
+const DARK_PALETTES: Record<
   AuraMode,
   { primary: string; secondary: string; tertiary: string; particle: string }
 > = {
@@ -48,9 +49,51 @@ const PALETTES: Record<
   },
 };
 
-export const LivingAura: React.FC<LivingAuraProps> = ({ mode, bpm }) => {
+const LIGHT_PALETTES: Record<
+  AuraMode,
+  { primary: string; secondary: string; tertiary: string; particle: string }
+> = {
+  calm: {
+    primary: 'rgba(14, 165, 233, 0.22)',
+    secondary: 'rgba(20, 184, 166, 0.20)',
+    tertiary: 'rgba(99, 102, 241, 0.16)',
+    particle: '8, 145, 178',
+  },
+  warmup: {
+    primary: 'rgba(56, 189, 248, 0.26)',
+    secondary: 'rgba(52, 211, 153, 0.22)',
+    tertiary: 'rgba(251, 191, 36, 0.16)',
+    particle: '2, 132, 199',
+  },
+  active: {
+    primary: 'rgba(249, 115, 22, 0.22)',
+    secondary: 'rgba(244, 63, 94, 0.18)',
+    tertiary: 'rgba(20, 184, 166, 0.16)',
+    particle: '234, 88, 12',
+  },
+  rest: {
+    primary: 'rgba(99, 102, 241, 0.24)',
+    secondary: 'rgba(6, 182, 212, 0.20)',
+    tertiary: 'rgba(168, 85, 247, 0.18)',
+    particle: '79, 70, 229',
+  },
+  safe: {
+    primary: 'rgba(16, 185, 129, 0.26)',
+    secondary: 'rgba(20, 184, 166, 0.20)',
+    tertiary: 'rgba(56, 189, 248, 0.18)',
+    particle: '5, 150, 105',
+  },
+  celebrate: {
+    primary: 'rgba(20, 184, 166, 0.28)',
+    secondary: 'rgba(245, 158, 11, 0.22)',
+    tertiary: 'rgba(99, 102, 241, 0.20)',
+    particle: '217, 119, 6',
+  },
+};
+
+export const LivingAura: React.FC<LivingAuraProps> = ({ mode, theme, bpm }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const palette = PALETTES[mode];
+  const palette = theme === 'light' ? LIGHT_PALETTES[mode] : DARK_PALETTES[mode];
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -74,7 +117,7 @@ export const LivingAura: React.FC<LivingAuraProps> = ({ mode, bpm }) => {
     const particles = Array.from({ length: count }, (_, i) => ({
       x: Math.random() * 440,
       y: Math.random() * 900,
-      r: 0.9 + Math.random() * 1.9,
+      r: 0.9 + Math.random() * 2.0,
       vx: (Math.random() - 0.5) * 0.22,
       vy: -0.14 - Math.random() * 0.28,
       phase: i * 0.7,
@@ -99,7 +142,9 @@ export const LivingAura: React.FC<LivingAuraProps> = ({ mode, bpm }) => {
         if (p.x < -10) p.x = w + 10;
         if (p.x > w + 10) p.x = -10;
 
-        const twinkle = 0.22 + 0.45 * (0.5 + 0.5 * Math.sin(time * 0.0018 * speedMult + p.phase));
+        const baseAlpha = theme === 'light' ? 0.16 : 0.22;
+        const twinkle =
+          baseAlpha + 0.36 * (0.5 + 0.5 * Math.sin(time * 0.0018 * speedMult + p.phase));
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${palette.particle}, ${twinkle.toFixed(3)})`;
@@ -114,13 +159,15 @@ export const LivingAura: React.FC<LivingAuraProps> = ({ mode, bpm }) => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('resize', resize);
     };
-  }, [palette.particle, bpm, mode]);
+  }, [palette.particle, bpm, mode, theme]);
 
   const pulseDuration = bpm ? `${Math.max(0.55, 60 / bpm).toFixed(2)}s` : '4.6s';
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[#05070C]">
-      {/* Organic breathing aurora fields */}
+    <div
+      className="pointer-events-none absolute inset-0 overflow-hidden transition-colors duration-500"
+      style={{ backgroundColor: theme === 'light' ? '#EDF4FB' : '#05070C' }}
+    >
       <div
         className="animate-float-slow absolute -top-24 -left-20 h-80 w-80 rounded-full blur-[95px] transition-colors duration-1000"
         style={{ background: palette.primary }}
@@ -137,15 +184,15 @@ export const LivingAura: React.FC<LivingAuraProps> = ({ mode, bpm }) => {
         }}
       />
 
-      {/* Ultra-subtle organic living particles */}
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full opacity-80" />
 
-      {/* Subtle top sheen & vignette for maximum readability */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 transition-opacity duration-500"
         style={{
           background:
-            'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 52%), linear-gradient(180deg, rgba(5,7,12,0.12) 0%, rgba(5,7,12,0.58) 100%)',
+            theme === 'light'
+              ? 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.65) 0%, transparent 55%), linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(226,238,250,0.45) 100%)'
+              : 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 52%), linear-gradient(180deg, rgba(5,7,12,0.12) 0%, rgba(5,7,12,0.58) 100%)',
         }}
       />
     </div>

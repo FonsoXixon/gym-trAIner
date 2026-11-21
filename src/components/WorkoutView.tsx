@@ -7,11 +7,12 @@ import {
   Plus,
   Check,
   SkipForward,
-  Sun,
   Trophy,
   ChevronRight,
   Timer,
   Sparkles,
+  ArrowLeft,
+  Smartphone,
 } from 'lucide-react';
 import {
   AdaptedSession,
@@ -23,6 +24,7 @@ import {
   ExerciseSessionLog,
   HeartRateState,
   SetLog,
+  ThemeMode,
 } from '../types/workout';
 import { EXERCISES } from '../data/exercises';
 import { getEffortMeta } from '../utils/progressionEngine';
@@ -34,15 +36,18 @@ import {
 } from '../services/wakeLock';
 import { ExerciseDiagram } from './ExerciseDiagram';
 import { HeartRatePill } from './HeartRatePill';
+import { ThemeToggleButton } from './ThemeToggleButton';
 
 interface WorkoutViewProps {
   session: AdaptedSession;
   checkIn: CheckInState;
   hr: HeartRateState;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
   soundEnabled: boolean;
   hapticsEnabled: boolean;
   onAuraChange: (mode: AuraMode) => void;
-  onOpenWatchSettings: () => void;
+  onOpenBluetooth: () => void;
   onFinish: (completed: CompletedSession) => void;
   onCancel: () => void;
 }
@@ -54,10 +59,12 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   session,
   checkIn,
   hr,
+  theme,
+  onToggleTheme,
   soundEnabled,
   hapticsEnabled,
   onAuraChange,
-  onOpenWatchSettings,
+  onOpenBluetooth,
   onFinish,
   onCancel,
 }) => {
@@ -69,7 +76,6 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   const [warmupSecLeft, setWarmupSecLeft] = useState(session.routine.warmupSteps[0]?.seconds ?? 120);
   const [warmupRunning, setWarmupRunning] = useState(false);
 
-  // Mutable list of session exercises so "Máquina ocupada" can swap cleanly in-place
   const [planItems, setPlanItems] = useState(() =>
     session.exercises.map((item) => ({
       ...item,
@@ -83,21 +89,21 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
   );
 
   const [exIdx, setExIdx] = useState(0);
-  const [setIdx, setSetIdx] = useState(0); // 0-based current set
+  const [setIdx, setSetIdx] = useState(0);
   const [deckMode, setDeckMode] = useState<ActionDeckMode>('ready');
   const [weightKg, setWeightKg] = useState(planItems[0]?.recommendedWeightKg ?? 10);
   const [reps, setReps] = useState(planItems[0]?.recommendedReps ?? 10);
   const [restTotal, setRestTotal] = useState(planItems[0]?.exercise.restSeconds ?? 75);
   const [restLeft, setRestLeft] = useState(0);
 
-  // Live stopwatch for timed exercises (e.g., plank)
   const [plankRunning, setPlankRunning] = useState(false);
   const [plankElapsed, setPlankElapsed] = useState(0);
 
   const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [wakeNotice, setWakeNotice] = useState(false);
 
-  // Recorded logs per exercise index
   const [logs, setLogs] = useState<Record<number, SetLog[]>>({});
 
   const currentItem = planItems[exIdx];
@@ -124,14 +130,12 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     };
   }, []);
 
-  // Collect live HR samples when connected
   useEffect(() => {
     if (hr.connected && hr.bpm) {
       hrSamplesRef.current.push(hr.bpm);
     }
   }, [hr.connected, hr.bpm]);
 
-  // Update living aura based on stage & deck mode
   useEffect(() => {
     if (stage === 'warmup') onAuraChange('warmup');
     else if (stage === 'summary') onAuraChange('celebrate');
@@ -139,7 +143,6 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     else onAuraChange('active');
   }, [stage, deckMode, onAuraChange]);
 
-  // Sync weight/reps when moving to a new exercise
   useEffect(() => {
     if (!currentItem) return;
     setWeightKg(currentItem.recommendedWeightKg);
@@ -149,7 +152,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     setPlankElapsed(0);
   }, [exIdx, currentItem?.exercise.id]);
 
-  // Warmup countdown
+  // Warmup timer
   useEffect(() => {
     if (stage !== 'warmup' || !warmupRunning) return;
     const id = window.setInterval(() => {
@@ -166,7 +169,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     return () => clearInterval(id);
   }, [stage, warmupRunning, soundEnabled, hapticsEnabled]);
 
-  // Rest countdown
+  // Rest timer
   useEffect(() => {
     if (stage !== 'exercise' || deckMode !== 'rest') return;
     if (restLeft <= 0) return;
@@ -208,7 +211,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     triggerHaptic(20, hapticsEnabled);
     if (currentExercise.isTimed && plankRunning) {
       setPlankRunning(false);
-      if (plankElapsed >= 10) setReps(plankElapsed);
+      if (plankElapsed >= 5) setReps(plankElapsed);
     }
     setDeckMode('effort');
   };
@@ -239,7 +242,6 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
       return;
     }
 
-    // Start living rest timer
     const restSecs = currentExercise.restSeconds;
     setRestTotal(restSecs);
     setRestLeft(restSecs);
@@ -333,49 +335,72 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     onFinish(completed);
   };
 
+  const handleRequestExit = () => {
+    if (summaryStats.totalSets > 0) {
+      setExitConfirmOpen(true);
+    } else {
+      onCancel();
+    }
+  };
+
   const formatSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   // ======================== WARMUP STAGE ========================
   if (stage === 'warmup') {
     const step = session.routine.warmupSteps[warmupIdx];
     const pct = step ? 1 - warmupSecLeft / step.seconds : 1;
-    const radius = 78;
+    const radius = 64;
     const circ = 2 * Math.PI * radius;
 
     return (
-      <div className="flex h-full flex-col justify-between px-4 py-3 overflow-hidden">
-        <header className="flex items-center justify-between">
+      <div className="flex h-full flex-col justify-between px-4 py-3 gap-2.5 overflow-hidden">
+        <header className="flex shrink-0 items-center justify-between gap-2">
           <button
             onClick={onCancel}
-            className="glass-pill flex h-9 w-9 items-center justify-center rounded-full text-slate-300"
+            className="glass-pill flex h-8 w-8 items-center justify-center rounded-full text-slate-300"
             aria-label="Salir"
           >
             <X className="h-4 w-4" />
           </button>
-          <span className="rounded-full bg-sky-400/15 border border-sky-300/35 px-3 py-1 text-[11px] font-bold text-sky-200">
-            CALENTAMIENTO SEGURO · {warmupIdx + 1}/{session.routine.warmupSteps.length}
+          <span className="rounded-full bg-sky-400/15 border border-sky-400/40 px-3 py-1 text-[10.5px] font-bold text-sky-200">
+            CALENTAMIENTO · {warmupIdx + 1}/{session.routine.warmupSteps.length}
           </span>
-          <HeartRatePill hr={hr} onClick={onOpenWatchSettings} />
+          <div className="flex items-center gap-1.5">
+            <ThemeToggleButton theme={theme} onToggle={onToggleTheme} />
+            <HeartRatePill hr={hr} onClick={onOpenBluetooth} />
+          </div>
         </header>
 
-        <div className="glass-panel flex flex-col items-center justify-center rounded-[30px] p-6 text-center my-auto">
-          <div className="relative flex h-48 w-48 items-center justify-center">
-            <svg viewBox="0 0 180 180" className="h-full w-full -rotate-90">
+        <div className="glass-panel flex flex-1 min-h-0 flex-col items-center justify-between rounded-[30px] p-4 text-center overflow-hidden">
+          {/* Real gym photo strip for warmup equipment */}
+          <div className="relative h-28 w-full overflow-hidden rounded-2xl border border-white/10">
+            <img
+              src={step.photo}
+              alt={step.equipment}
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute bottom-2 left-2 rounded-full bg-slate-950/75 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-bold keep-white-text text-white">
+              {step.equipment}
+            </div>
+          </div>
+
+          <div className="relative flex h-40 w-40 items-center justify-center my-1">
+            <svg viewBox="0 0 156 156" className="h-full w-full -rotate-90">
               <circle
-                cx="90"
-                cy="90"
+                cx="78"
+                cy="78"
                 r={radius}
                 fill="none"
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth="10"
+                stroke="rgba(148,163,184,0.16)"
+                strokeWidth="9"
               />
               <circle
-                cx="90"
-                cy="90"
+                cx="78"
+                cy="78"
                 r={radius}
                 fill="none"
                 stroke="url(#warmupGrad)"
-                strokeWidth="10"
+                strokeWidth="9"
                 strokeLinecap="round"
                 strokeDasharray={circ}
                 strokeDashoffset={circ * (1 - pct)}
@@ -389,39 +414,39 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
               </defs>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="font-mono-num text-4xl font-bold text-white">
+              <span className="font-mono-num text-3xl font-extrabold text-white">
                 {formatSec(warmupSecLeft)}
               </span>
-              <span className="mt-1 rounded-full bg-white/[0.07] px-2.5 py-0.5 text-[10px] font-semibold text-cyan-200">
-                {step.equipment}
-              </span>
+              <button
+                onClick={() => setWarmupRunning((r) => !r)}
+                className="mt-1.5 rounded-full bg-cyan-400/20 border border-cyan-400/40 px-3 py-0.5 text-[10px] font-bold text-cyan-200 active:scale-95"
+              >
+                {warmupRunning ? 'Pausar' : 'Iniciar'}
+              </button>
             </div>
           </div>
 
-          <h2 className="mt-4 text-xl font-extrabold text-white">{step.title}</h2>
-          <p className="mt-1.5 text-sm text-slate-300 max-w-[280px] leading-snug">{step.detail}</p>
-
-          <button
-            onClick={() => setWarmupRunning((r) => !r)}
-            className="mt-5 rounded-full bg-white/[0.1] border border-white/15 px-6 py-2.5 text-xs font-bold text-white active:scale-95 transition-transform"
-          >
-            {warmupRunning ? 'Pausar reloj' : 'Iniciar reloj'}
-          </button>
+          <div>
+            <h2 className="text-lg font-extrabold text-white leading-tight">{step.title}</h2>
+            <p className="mt-1 text-xs text-slate-300 max-w-[290px] leading-snug">{step.detail}</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid shrink-0 grid-cols-2 gap-2.5">
           <button
             onClick={() => setStage('exercise')}
-            className="glass-pill flex items-center justify-center gap-1.5 rounded-2xl py-3.5 text-xs font-bold text-slate-300"
+            className="glass-pill flex items-center justify-center gap-1.5 rounded-2xl py-3.5 text-xs font-bold text-slate-300 active:scale-95 transition-transform"
           >
             <SkipForward className="h-4 w-4" />
             <span>Ir directo a fuerza</span>
           </button>
           <button
             onClick={advanceWarmup}
-            className="flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-400 py-3.5 text-xs font-extrabold text-slate-950 shadow-[0_0_24px_rgba(56,189,248,0.4)]"
+            className="keep-dark-text flex items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-cyan-400 to-sky-400 py-3.5 text-xs font-extrabold text-slate-950 shadow-[0_0_24px_rgba(56,189,248,0.4)] active:scale-95 transition-transform"
           >
-            <span>{warmupIdx + 1 < session.routine.warmupSteps.length ? 'Siguiente' : 'Empezar fuerza'}</span>
+            <span>
+              {warmupIdx + 1 < session.routine.warmupSteps.length ? 'Siguiente' : 'Empezar fuerza'}
+            </span>
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -450,19 +475,19 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
         <div className="glass-panel rounded-[28px] p-4 space-y-3 my-auto">
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-2xl bg-white/[0.04] p-3">
+            <div className="surface-soft rounded-2xl p-3">
               <div className="font-mono-num text-xl font-extrabold text-cyan-300">
                 {summaryStats.durationMinutes}m
               </div>
               <div className="text-[10px] text-slate-400 mt-0.5">Duración</div>
             </div>
-            <div className="rounded-2xl bg-white/[0.04] p-3">
+            <div className="surface-soft rounded-2xl p-3">
               <div className="font-mono-num text-xl font-extrabold text-white">
                 {summaryStats.totalSets}
               </div>
               <div className="text-[10px] text-slate-400 mt-0.5">Series</div>
             </div>
-            <div className="rounded-2xl bg-white/[0.04] p-3">
+            <div className="surface-soft rounded-2xl p-3">
               <div className="font-mono-num text-xl font-extrabold text-amber-300">
                 {summaryStats.totalVolumeKg > 0 ? `${summaryStats.totalVolumeKg}` : 'Core'}
               </div>
@@ -482,7 +507,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
           )}
 
           <div className="flex items-start gap-2 rounded-2xl bg-emerald-500/10 border border-emerald-400/25 p-3 text-xs text-emerald-100">
-            <Sparkles className="h-4 w-4 shrink-0 text-emerald-300 mt-0.5" />
+            <Sparkles className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
             <span>
               Tus sensaciones de hoy ya ajustan automáticamente los pesos seguros de tu próxima sesión.
             </span>
@@ -492,7 +517,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleSaveAndClose}
-          className="w-full rounded-[22px] bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-300 py-4 text-base font-extrabold text-slate-950 shadow-[0_0_32px_rgba(0,245,212,0.45)]"
+          className="keep-dark-text w-full rounded-[22px] bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-300 py-4 text-base font-extrabold text-slate-950 shadow-[0_0_32px_rgba(0,245,212,0.45)]"
         >
           Guardar y volver a Hoy
         </motion.button>
@@ -511,11 +536,11 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
     <div className="relative flex h-full flex-col justify-between px-3.5 pt-2.5 pb-3 gap-2 overflow-hidden">
       {/* TOP BAR + SEGMENTED PROGRESS */}
       <div className="shrink-0 space-y-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-1.5">
           <button
-            onClick={onCancel}
-            className="glass-pill flex h-8 w-8 items-center justify-center rounded-full text-slate-300"
-            aria-label="Cerrar entreno"
+            onClick={handleRequestExit}
+            className="glass-pill flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-300 active:scale-90 transition-transform"
+            aria-label="Salir del entreno"
           >
             <X className="h-4 w-4" />
           </button>
@@ -534,34 +559,54 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                   idx < exIdx
                     ? 'bg-emerald-400'
                     : idx === exIdx
-                    ? 'bg-cyan-300 shadow-[0_0_10px_#00F5D4]'
-                    : 'bg-white/15'
+                    ? 'bg-cyan-400 shadow-[0_0_10px_#00F5D4]'
+                    : 'bg-slate-500/30'
                 }`}
                 aria-label={`Ejercicio ${idx + 1}`}
               />
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             {wakeLockActive && (
-              <span
-                className="glass-pill flex h-7 w-7 items-center justify-center rounded-full text-amber-300"
+              <button
+                onClick={() => {
+                  setWakeNotice(true);
+                  setTimeout(() => setWakeNotice(false), 1800);
+                }}
+                className="glass-pill flex h-8 w-8 items-center justify-center rounded-full text-emerald-400"
                 title="Pantalla siempre encendida"
+                aria-label="Pantalla siempre encendida"
               >
-                <Sun className="h-3.5 w-3.5" />
-              </span>
+                <Smartphone className="h-3.5 w-3.5" />
+              </button>
             )}
-            <HeartRatePill hr={hr} onClick={onOpenWatchSettings} />
+            <ThemeToggleButton theme={theme} onToggle={onToggleTheme} />
+            <HeartRatePill hr={hr} onClick={onOpenBluetooth} />
           </div>
         </div>
+
+        {/* Tiny floating Wake Lock confirmation toast */}
+        <AnimatePresence>
+          {wakeNotice && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="rounded-xl bg-emerald-500/20 border border-emerald-400/40 px-3 py-1 text-center text-[10.5px] font-semibold text-emerald-200"
+            >
+              Pantalla siempre encendida activa mientras entrenas
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Exercise Title + Equipment + "Ocupada" Button */}
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="truncate text-lg font-extrabold tracking-tight text-white leading-tight">
+            <h1 className="truncate text-[17px] font-extrabold tracking-tight text-white leading-tight">
               {currentExercise.name}
             </h1>
-            <p className="truncate text-[11px] text-cyan-200/85">
+            <p className="truncate text-[11px] text-cyan-200/90">
               {currentExercise.equipmentLabel}
             </p>
           </div>
@@ -569,7 +614,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
           {alternatives.length > 0 && (
             <button
               onClick={() => setSwapModalOpen(true)}
-              className="glass-pill flex shrink-0 items-center gap-1 rounded-full border-amber-400/35 px-2.5 py-1.5 text-[11px] font-bold text-amber-200 active:scale-95 transition-transform"
+              className="glass-pill flex shrink-0 items-center gap-1 rounded-full border-amber-400/45 px-2.5 py-1.5 text-[11px] font-bold text-amber-200 active:scale-95 transition-transform"
             >
               <RefreshCw className="h-3 w-3" />
               <span>Ocupada</span>
@@ -580,35 +625,36 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
       {/* VISUAL BIOMECHANICAL DIAGRAM STAGE (HERO) */}
       <div className="flex-1 min-h-0">
-        <ExerciseDiagram exercise={currentExercise} />
+        <ExerciseDiagram exercise={currentExercise} theme={theme} />
       </div>
 
       {/* SET STEPPER DECK */}
       <div className="glass-panel shrink-0 rounded-[22px] px-3 py-2.5">
         <div className="mb-2 flex items-center justify-between text-[11px]">
-          <div className="flex items-center gap-1.5">
-            <span className="rounded-md bg-cyan-400/15 border border-cyan-400/30 px-2 py-0.5 font-bold text-cyan-200">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0 rounded-md bg-cyan-400/15 border border-cyan-400/35 px-2 py-0.5 font-bold text-cyan-200">
               Serie {setIdx + 1} / {currentItem.sets}
             </span>
-            <span className="text-slate-400 truncate max-w-[175px]">
+            <span className="text-slate-400 truncate">
               {currentItem.lastSessionHint ?? currentItem.progressionNote}
             </span>
           </div>
-          <span className="font-mono-num text-[10px] text-slate-400">
+          <span className="font-mono-num shrink-0 text-[10px] text-slate-400 ml-1">
             Ej {exIdx + 1}/{planItems.length}
           </span>
         </div>
 
         <div className={`grid gap-2 ${currentExercise.isBodyweight ? 'grid-cols-1' : 'grid-cols-2'}`}>
-          {/* Weight stepper */}
           {!currentExercise.isBodyweight && (
-            <div className="flex items-center justify-between rounded-2xl bg-slate-950/70 border border-white/[0.08] p-1.5">
+            <div className="surface-inset flex items-center justify-between rounded-2xl p-1.5">
               <button
                 onClick={() => {
                   triggerHaptic(10, hapticsEnabled);
                   setWeightKg((w) => Math.max(currentExercise.minWeightKg, w - currentExercise.weightStepKg));
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.07] text-white active:scale-90 transition-transform"
+                disabled={weightKg <= currentExercise.minWeightKg}
+                className="surface-soft flex h-10 w-10 items-center justify-center rounded-xl text-white active:scale-90 transition-transform disabled:opacity-35"
+                aria-label="Bajar peso"
               >
                 <Minus className="h-4 w-4" />
               </button>
@@ -623,21 +669,23 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                   triggerHaptic(10, hapticsEnabled);
                   setWeightKg((w) => Math.min(currentExercise.maxWeightKg, w + currentExercise.weightStepKg));
                 }}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.07] text-white active:scale-90 transition-transform"
+                disabled={weightKg >= currentExercise.maxWeightKg}
+                className="surface-soft flex h-10 w-10 items-center justify-center rounded-xl text-white active:scale-90 transition-transform disabled:opacity-35"
+                aria-label="Subir peso"
               >
                 <Plus className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          {/* Reps or Seconds stepper */}
-          <div className="flex items-center justify-between rounded-2xl bg-slate-950/70 border border-white/[0.08] p-1.5">
+          <div className="surface-inset flex items-center justify-between rounded-2xl p-1.5">
             <button
               onClick={() => {
                 triggerHaptic(10, hapticsEnabled);
                 setReps((r) => Math.max(1, r - (currentExercise.isTimed ? 5 : 1)));
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.07] text-white active:scale-90 transition-transform"
+              className="surface-soft flex h-10 w-10 items-center justify-center rounded-xl text-white active:scale-90 transition-transform"
+              aria-label="Menos repeticiones"
             >
               <Minus className="h-4 w-4" />
             </button>
@@ -654,7 +702,8 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                 triggerHaptic(10, hapticsEnabled);
                 setReps((r) => r + (currentExercise.isTimed ? 5 : 1));
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.07] text-white active:scale-90 transition-transform"
+              className="surface-soft flex h-10 w-10 items-center justify-center rounded-xl text-white active:scale-90 transition-transform"
+              aria-label="Más repeticiones"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -676,7 +725,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
               {currentExercise.isTimed && (
                 <button
                   onClick={() => setPlankRunning((r) => !r)}
-                  className="glass-pill flex items-center justify-center gap-1.5 rounded-[20px] px-4 py-3.5 text-xs font-bold text-cyan-200 border-cyan-400/35"
+                  className="glass-pill flex items-center justify-center gap-1.5 rounded-[20px] px-4 py-3.5 text-xs font-bold text-cyan-200 border-cyan-400/40"
                 >
                   <Timer className="h-4 w-4" />
                   <span>{plankRunning ? `${plankElapsed}s` : 'Crono'}</span>
@@ -685,7 +734,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={handleSetCompletedPress}
-                className="flex flex-1 items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-cyan-400 via-teal-300 to-sky-400 py-3.5 text-base font-extrabold text-slate-950 shadow-[0_0_28px_rgba(0,245,212,0.38)]"
+                className="keep-dark-text flex flex-1 items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-cyan-400 via-teal-300 to-sky-400 py-3.5 text-base font-extrabold text-slate-950 shadow-[0_0_28px_rgba(0,245,212,0.38)]"
               >
                 <Check className="h-5 w-5 stroke-[2.8]" />
                 <span>Serie completada</span>
@@ -701,8 +750,18 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
               exit={{ opacity: 0, scale: 0.96 }}
               className="glass-panel rounded-[22px] p-2.5"
             >
-              <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200">
-                ¿Cómo sentiste esta serie?
+              <div className="mb-1.5 flex items-center justify-between">
+                <button
+                  onClick={() => setDeckMode('ready')}
+                  className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-white"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  <span>Volver</span>
+                </button>
+                <span className="text-[11px] font-bold text-slate-200">
+                  ¿Cómo sentiste esta serie?
+                </span>
+                <span className="w-10" />
               </div>
               <div className="grid grid-cols-4 gap-1.5">
                 {(['easy', 'ideal', 'hard', 'max'] as EffortFeeling[]).map((eff) => {
@@ -732,18 +791,18 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
-              className="glass-panel rounded-[22px] p-2.5 flex items-center justify-between gap-2 border-indigo-400/35"
+              className="glass-panel rounded-[22px] p-2.5 flex items-center justify-between gap-2 border-indigo-400/40"
             >
               <div className="flex items-center gap-2.5">
                 <div className="relative flex h-12 w-12 shrink-0 items-center justify-center">
                   <svg viewBox="0 0 48 48" className="h-full w-full -rotate-90">
-                    <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="4" />
+                    <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(148,163,184,0.2)" strokeWidth="4" />
                     <circle
                       cx="24"
                       cy="24"
                       r="20"
                       fill="none"
-                      stroke={restLeft === 0 ? '#22C55E' : '#818CF8'}
+                      stroke={restLeft === 0 ? '#10B981' : '#818CF8'}
                       strokeWidth="4"
                       strokeLinecap="round"
                       strokeDasharray={125.6}
@@ -762,13 +821,13 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <button
                       onClick={() => setRestLeft((r) => Math.max(0, r - 15))}
-                      className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-bold text-slate-300"
+                      className="surface-soft rounded-md px-1.5 py-0.5 text-[10px] font-bold text-slate-300"
                     >
                       -15s
                     </button>
                     <button
                       onClick={() => setRestLeft((r) => r + 15)}
-                      className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[10px] font-bold text-slate-300"
+                      className="surface-soft rounded-md px-1.5 py-0.5 text-[10px] font-bold text-slate-300"
                     >
                       +15s
                     </button>
@@ -778,10 +837,10 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
 
               <button
                 onClick={handleContinueAfterRest}
-                className={`rounded-2xl px-4 py-3 text-xs font-extrabold transition-all active:scale-95 ${
+                className={`keep-dark-text rounded-2xl px-4 py-3 text-xs font-extrabold transition-all active:scale-95 ${
                   restLeft === 0
                     ? 'bg-gradient-to-r from-emerald-400 to-cyan-300 text-slate-950 shadow-[0_0_20px_rgba(52,211,153,0.45)]'
-                    : 'bg-white text-slate-950'
+                    : 'bg-cyan-400 text-slate-950'
                 }`}
               >
                 {setIdx + 1 < currentItem.sets ? 'Siguiente serie →' : 'Siguiente ej. →'}
@@ -806,7 +865,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
               animate={{ y: 0 }}
               exit={{ y: 80 }}
               onClick={(e) => e.stopPropagation()}
-              className="glass-panel w-full rounded-[26px] p-4 space-y-3 border-amber-400/35"
+              className="glass-panel w-full rounded-[26px] p-4 space-y-3 border-amber-400/40"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -817,7 +876,7 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                 </div>
                 <button
                   onClick={() => setSwapModalOpen(false)}
-                  className="rounded-full bg-white/10 p-1.5 text-slate-300"
+                  className="surface-soft rounded-full p-1.5 text-slate-300"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -828,15 +887,68 @@ export const WorkoutView: React.FC<WorkoutViewProps> = ({
                   <button
                     key={alt.id}
                     onClick={() => handleSwapOccupied(alt)}
-                    className="flex w-full items-center justify-between rounded-2xl bg-white/[0.06] border border-white/10 p-3 text-left transition-colors hover:bg-white/[0.11] active:scale-[0.98]"
+                    className="surface-soft flex w-full items-center gap-2.5 rounded-2xl p-2.5 text-left transition-transform active:scale-[0.98]"
                   >
-                    <div>
-                      <div className="text-xs font-bold text-white">{alt.name}</div>
-                      <div className="text-[11px] text-cyan-200/85">{alt.equipmentLabel}</div>
+                    <img
+                      src={alt.machinePhoto}
+                      alt={alt.equipmentLabel}
+                      className="h-11 w-11 shrink-0 rounded-xl object-cover border border-white/15"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate text-xs font-bold text-white">{alt.name}</div>
+                      <div className="truncate text-[11px] text-cyan-200">{alt.equipmentLabel}</div>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-cyan-300" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-cyan-400" />
                   </button>
                 ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SAFE EXIT CONFIRMATION OVERLAY */}
+      <AnimatePresence>
+        {exitConfirmOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4"
+            onClick={() => setExitConfirmOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel w-full rounded-[26px] p-4 space-y-3 border-white/15"
+            >
+              <div>
+                <h3 className="text-base font-extrabold text-white">¿Salir del entreno?</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Llevas {summaryStats.totalSets} {summaryStats.totalSets === 1 ? 'serie registrada' : 'series registradas'}. ¿Qué prefieres hacer?
+                </p>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setExitConfirmOpen(false)}
+                  className="keep-dark-text w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-teal-300 py-3 text-xs font-extrabold text-slate-950"
+                >
+                  Seguir entrenando
+                </button>
+                <button
+                  onClick={handleSaveAndClose}
+                  className="surface-soft w-full rounded-2xl py-2.5 text-xs font-bold text-emerald-200 border-emerald-400/35"
+                >
+                  Terminar y guardar lo hecho
+                </button>
+                <button
+                  onClick={onCancel}
+                  className="w-full rounded-2xl bg-rose-500/15 border border-rose-400/35 py-2.5 text-xs font-bold text-rose-200"
+                >
+                  Salir sin guardar
+                </button>
               </div>
             </motion.div>
           </motion.div>

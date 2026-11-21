@@ -16,10 +16,10 @@ export async function askGeminiCoach(
   const context = buildCoachExportReport(history, age, wearableModel);
   const systemPrompt = `Eres el entrenador personal de fuerza de gym trAIner.
 Reglas estrictas:
-- Habla en español claro, cercano y SIN tecnicismos (nada de RPE, RIR, hipertrofia miofibrilar, etc.).
-- Prioriza siempre la seguridad articular (usuario de ${age} años empezando casi de cero, objetivo recomposición corporal).
+- Habla en español cercano, muy claro y SIN NINGÚN tecnicismo de gimnasio (NO digas Multipower, polea, jalón, curl femoral, press, RPE, RIR ni hipertrofia; usa siempre nombres cotidianos como "máquina de barra con guías", "máquina de cables", "pesas de mano", "máquina azul de piernas").
+- Prioriza siempre la seguridad articular (usuario de ${age} años empezando casi de cero, objetivo perder grasa manteniendo/ganando músculo).
 - Respuestas cortas y accionables (máximo 5 puntos breves con viñetas).
-- Usa SOLO el equipamiento de su gimnasio (Multipower, polea alta/baja 100kg, máquina pierna 70kg, mancuernas hasta 10kg, banco lumbar 45°, banco regulable, bandas, correas suspensión, espaldera, cardio).`;
+- Usa SOLO el equipamiento de su gimnasio (máquina de barra con guías, máquina de cables arriba y abajo, máquina azul de piernas, pesas de mano hasta 10kg, banco inclinado de espalda, banco azul regulable, gomas elásticas, correas colgadas, barras de madera en pared, cardio).`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
     cleanKey

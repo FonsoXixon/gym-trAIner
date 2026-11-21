@@ -27,6 +27,7 @@ import { TodayView } from './components/TodayView';
 import { WorkoutView } from './components/WorkoutView';
 import { ProgressView } from './components/ProgressView';
 import { GymSettingsView, SettingsSubTab } from './components/GymSettingsView';
+import { BluetoothModal } from './components/BluetoothModal';
 
 export function App() {
   const [settings, setSettings] = useState<UserSettings>(() => loadSettings());
@@ -42,6 +43,7 @@ export function App() {
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>('gym');
   const [workoutActive, setWorkoutActive] = useState(false);
   const [workoutAura, setWorkoutAura] = useState<AuraMode>('calm');
+  const [bluetoothModalOpen, setBluetoothModalOpen] = useState(false);
 
   const [hr, setHr] = useState<HeartRateState>({
     connected: false,
@@ -53,7 +55,6 @@ export function App() {
     error: null,
   });
 
-  // Subscribe to Bluetooth / Demo heart rate stream
   useEffect(() => {
     return bluetoothHR.subscribe(setHr);
   }, []);
@@ -66,12 +67,23 @@ export function App() {
     });
   };
 
+  const handleToggleTheme = () => {
+    handleUpdateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' });
+  };
+
   const handleUpdateCheckIn = (patch: Partial<CheckInState>) => {
     setCheckIn((prev) => {
       const next = { ...prev, ...patch };
       saveTodayCheckIn(next);
       return next;
     });
+  };
+
+  const handleDataImported = () => {
+    setSettings(loadSettings());
+    const freshHistory = loadHistory();
+    setHistory(freshHistory);
+    setSelectedRoutineId(getSuggestedRoutineId(freshHistory));
   };
 
   const adaptedSession = useMemo(
@@ -101,26 +113,46 @@ export function App() {
 
   const openSettingsTab = (tab: SettingsSubTab) => {
     setSettingsSubTab(tab);
-    setWorkoutActive(false);
     setActiveTab('settings');
   };
 
-  // Compute global living aura mode
   const currentAuraMode: AuraMode = workoutActive
     ? workoutAura
     : checkIn.discomfort.length > 0
     ? 'safe'
     : 'calm';
 
-  return (
-    <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#03050A]">
-      {/* Subtle outer desktop glow */}
-      <div className="pointer-events-none hidden md:block absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(0,245,212,0.09),transparent_60%)]" />
+  const themeClass = settings.theme === 'light' ? 'theme-light' : 'theme-dark';
 
-      {/* App Shell: Full-bleed on mobile (Pixel 9a), sleek floating mobile frame on desktop */}
-      <main className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[#05070C] md:h-[min(92dvh,860px)] md:max-w-[420px] md:rounded-[40px] md:border md:border-white/[0.12] md:shadow-[0_30px_100px_rgba(0,0,0,0.85)]">
+  return (
+    <div
+      className={`${themeClass} relative flex h-[100dvh] w-full items-center justify-center overflow-hidden transition-colors duration-500`}
+      style={{
+        backgroundColor: settings.theme === 'light' ? '#DCE8F5' : '#03050A',
+      }}
+    >
+      {/* Subtle outer desktop glow */}
+      <div
+        className="pointer-events-none hidden md:block absolute inset-0"
+        style={{
+          background:
+            settings.theme === 'light'
+              ? 'radial-gradient(circle at 50% 40%, rgba(14,165,233,0.16), transparent 60%)'
+              : 'radial-gradient(circle at 50% 40%, rgba(0,245,212,0.09), transparent 60%)',
+        }}
+      />
+
+      {/* App Shell: Full-bleed on Pixel 9a, sleek floating mobile frame on desktop */}
+      <main
+        className="relative flex h-[100dvh] w-full flex-col overflow-hidden md:h-[min(92dvh,860px)] md:max-w-[420px] md:rounded-[40px] md:border md:shadow-[0_30px_100px_rgba(0,0,0,0.45)] transition-colors duration-500"
+        style={{
+          backgroundColor: settings.theme === 'light' ? '#EDF4FB' : '#05070C',
+          borderColor:
+            settings.theme === 'light' ? 'rgba(15,23,42,0.12)' : 'rgba(255,255,255,0.12)',
+        }}
+      >
         {/* Living Reactive World Background */}
-        <LivingAura mode={currentAuraMode} bpm={hr.bpm} />
+        <LivingAura mode={currentAuraMode} theme={settings.theme} bpm={hr.bpm} />
 
         {/* Foreground Interactive Views */}
         <div className="relative z-10 flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -138,10 +170,12 @@ export function App() {
                   session={adaptedSession}
                   checkIn={checkIn}
                   hr={hr}
+                  theme={settings.theme}
+                  onToggleTheme={handleToggleTheme}
                   soundEnabled={settings.soundEnabled}
                   hapticsEnabled={settings.hapticsEnabled}
                   onAuraChange={setWorkoutAura}
-                  onOpenWatchSettings={() => openSettingsTab('watch')}
+                  onOpenBluetooth={() => setBluetoothModalOpen(true)}
                   onFinish={handleFinishWorkout}
                   onCancel={() => setWorkoutActive(false)}
                 />
@@ -157,6 +191,8 @@ export function App() {
               >
                 <TodayView
                   userName={settings.name}
+                  theme={settings.theme}
+                  onToggleTheme={handleToggleTheme}
                   selectedRoutineId={selectedRoutineId}
                   suggestedRoutineId={suggestedRoutineId}
                   onSelectRoutine={setSelectedRoutineId}
@@ -166,7 +202,7 @@ export function App() {
                   weekCount={weeklyStats.weekCount}
                   weeklyGoal={weeklyStats.weeklyGoal}
                   hr={hr}
-                  onOpenWatchSettings={() => openSettingsTab('watch')}
+                  onOpenBluetooth={() => setBluetoothModalOpen(true)}
                   onStartWorkout={() => setWorkoutActive(true)}
                 />
               </motion.div>
@@ -182,12 +218,16 @@ export function App() {
                 <ProgressView
                   history={history}
                   settings={settings}
+                  theme={settings.theme}
+                  onToggleTheme={handleToggleTheme}
+                  hr={hr}
+                  onOpenBluetooth={() => setBluetoothModalOpen(true)}
                   onOpenSettingsAI={() => openSettingsTab('cloud')}
                 />
               </motion.div>
             ) : (
               <motion.div
-                key={`settings-${settingsSubTab}`}
+                key="settings"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -197,16 +237,29 @@ export function App() {
                 <GymSettingsView
                   initialTab={settingsSubTab}
                   settings={settings}
+                  theme={settings.theme}
+                  onToggleTheme={handleToggleTheme}
                   onUpdateSettings={handleUpdateSettings}
+                  onDataImported={handleDataImported}
                   hr={hr}
+                  onOpenBluetooth={() => setBluetoothModalOpen(true)}
                 />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Floating Bottom Navigation (Hidden during active workout for max zero-scroll visual room) */}
+        {/* Floating Bottom Navigation */}
         {!workoutActive && <BottomNav active={activeTab} onChange={setActiveTab} />}
+
+        {/* In-Place Non-Destructive Bluetooth Heart Rate Overlay (works even mid-workout!) */}
+        <BluetoothModal
+          open={bluetoothModalOpen}
+          onClose={() => setBluetoothModalOpen(false)}
+          hr={hr}
+          age={settings.age}
+          wearableModel={settings.wearableModel}
+        />
       </main>
     </div>
   );

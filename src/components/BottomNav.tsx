@@ -25,8 +25,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({ active, onChange }) => {
             <button
               key={id}
               onClick={() => onChange(id)}
-              className={`relative flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-xs font-semibold transition-colors ${
-                isActive ? 'text-slate-950' : 'text-slate-400 hover:text-slate-200'
+              className={`relative flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-xs font-bold transition-colors ${
+                isActive ? 'keep-dark-text text-slate-950' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {isActive && (

@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   age: 44,
   weeklyGoal: 3,
   defaultDuration: 45,
+  theme: 'dark',
   geminiApiKey: '',
   soundEnabled: true,
   hapticsEnabled: true,

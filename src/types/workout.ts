@@ -1,5 +1,7 @@
 export type AuraMode = 'calm' | 'warmup' | 'active' | 'rest' | 'safe' | 'celebrate';
 
+export type ThemeMode = 'dark' | 'light';
+
 export type EnergyLevel = 'low' | 'normal' | 'high';
 
 export type DiscomfortZone = 'lumbar' | 'rodillas' | 'hombros' | 'cuello';
@@ -42,7 +44,8 @@ export type DiagramType =
   | 'incline_db_press'
   | 'close_grip_pulldown'
   | 'trx_row'
-  | 'cable_arms'
+  | 'cable_triceps'
+  | 'cable_biceps'
   | 'db_arms'
   | 'controlled_crunch';
 
@@ -59,6 +62,8 @@ export interface Exercise {
   shortName: string;
   equipmentId: string;
   equipmentLabel: string;
+  machinePhoto: string;
+  machineHowToFind: string;
   diagramType: DiagramType;
   category: 'pierna' | 'empuje' | 'tiron' | 'core' | 'brazos';
   primaryMuscles: MuscleGroup[];
@@ -66,7 +71,7 @@ export interface Exercise {
   defaultSets: number;
   targetReps: number;
   repRange: [number, number];
-  isTimed?: boolean; // e.g., plank in seconds
+  isTimed?: boolean;
   defaultWeightKg: number;
   weightStepKg: number;
   minWeightKg: number;
@@ -94,9 +99,10 @@ export interface RoutineTemplate {
     detail: string;
     seconds: number;
     equipment: string;
+    photo: string;
   }[];
   exerciseIds: string[];
-  bonusExerciseId: string; // Added when user selects 60 min
+  bonusExerciseId: string;
 }
 
 export interface SetLog {
@@ -133,6 +139,7 @@ export interface GymEquipmentItem {
   name: string;
   category: 'maquina' | 'peso_libre' | 'accesorio' | 'cardio';
   specs: string;
+  photo: string;
   available: boolean;
 }
 
@@ -141,6 +148,7 @@ export interface UserSettings {
   age: number;
   weeklyGoal: number;
   defaultDuration: SessionDuration;
+  theme: ThemeMode;
   geminiApiKey: string;
   soundEnabled: boolean;
   hapticsEnabled: boolean;

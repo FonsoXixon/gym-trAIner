@@ -4,21 +4,23 @@ export const ROUTINES: Record<'A' | 'B' | 'C', RoutineTemplate> = {
   A: {
     id: 'A',
     title: 'Sesión A · Base y Empuje',
-    subtitle: 'Pierna guiada, pecho, espalda alta y core',
+    subtitle: 'Pierna guiada, pecho, espalda alta y abdomen',
     focusTag: 'Cuerpo Completo A',
     accent: 'cyan',
     warmupSteps: [
       {
         title: 'Activa el pulso suave',
-        detail: 'Bici o elíptica a ritmo cómodo donde puedas hablar',
+        detail: 'Bici o elíptica a ritmo cómodo donde puedas hablar sin ahogarte',
         seconds: 180,
         equipment: 'Bici o elíptica',
+        photo: '/gym/cardio.jpg',
       },
       {
-        title: 'Hombros y espalda con palo',
-        detail: '10 círculos suaves por encima de la cabeza + giros de cintura',
+        title: 'Despierta hombros y cintura',
+        detail: 'Coge el palo de madera: 10 subidas suaves arriba + 10 giros de cintura',
         seconds: 90,
         equipment: 'Palo de madera',
+        photo: '/gym/bandas.jpg',
       },
     ],
     exerciseIds: [
@@ -34,21 +36,23 @@ export const ROUTINES: Record<'A' | 'B' | 'C', RoutineTemplate> = {
   B: {
     id: 'B',
     title: 'Sesión B · Espalda y Glúteo',
-    subtitle: 'Cadena posterior blindada, remo y hombros',
+    subtitle: 'Espalda fuerte, piernas detrás, hombros y escudo core',
     focusTag: 'Cuerpo Completo B',
     accent: 'violet',
     warmupSteps: [
       {
         title: 'Sube temperatura articular',
-        detail: 'Cinta caminando ligero o bici suave',
+        detail: 'Cinta caminando ligero o bici suave para engrasar rodillas',
         seconds: 180,
         equipment: 'Cinta o bici',
+        photo: '/gym/cardio.jpg',
       },
       {
-        title: 'Abre pecho con banda',
-        detail: '12 separaciones de banda al frente + 10 sentadillas al aire suaves',
+        title: 'Abre pecho con goma elástica',
+        detail: '12 separaciones suaves de goma al frente + 10 sentadillas sin peso',
         seconds: 90,
-        equipment: 'Banda elástica',
+        equipment: 'Goma elástica',
+        photo: '/gym/bandas.jpg',
       },
     ],
     exerciseIds: [
@@ -63,32 +67,34 @@ export const ROUTINES: Record<'A' | 'B' | 'C', RoutineTemplate> = {
 
   C: {
     id: 'C',
-    title: 'Sesión C · Funcional y Brazos',
-    subtitle: 'Equilibrio, empuje inclinado, tirón y brazos',
+    title: 'Sesión C · Equilibrio y Brazos',
+    subtitle: 'Piernas, pecho inclinado, espalda, tríceps y abdomen',
     focusTag: 'Cuerpo Completo C',
     accent: 'amber',
     warmupSteps: [
       {
-        title: 'Movilidad general',
-        detail: 'Elíptica suave moviendo bien los brazos',
+        title: 'Movilidad cuerpo completo',
+        detail: 'Elíptica suave moviendo bien los brazos para calentar hombros',
         seconds: 180,
         equipment: 'Elíptica',
+        photo: '/gym/cardio.jpg',
       },
       {
-        title: 'Caderas y escápulas',
-        detail: '10 balanceos suaves de pierna + 10 remos suaves con banda',
+        title: 'Prepara caderas y espalda',
+        detail: '10 balanceos suaves de pierna apoyado + 10 tirones suaves con goma',
         seconds: 90,
-        equipment: 'Espaldera + banda',
+        equipment: 'Goma elástica',
+        photo: '/gym/bandas.jpg',
       },
     ],
     exerciseIds: [
       'lunge',
       'incline_db_press',
       'close_grip_pulldown',
-      'cable_arms',
+      'cable_triceps',
       'controlled_crunch',
     ],
-    bonusExerciseId: 'glute_bridge',
+    bonusExerciseId: 'cable_biceps',
   },
 };
 
