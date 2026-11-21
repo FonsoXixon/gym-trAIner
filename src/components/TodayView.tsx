@@ -244,24 +244,27 @@ export const TodayView: React.FC<TodayViewProps> = ({
         </div>
 
         {/* Compact zero-scroll preview of today's exercises */}
-        <div className="grid grid-cols-1 gap-1.5 my-auto">
+        <div className="flex flex-1 min-h-0 flex-col justify-center gap-2 my-1">
           {adaptedSession.exercises.map((item, idx) => (
             <div
               key={`${item.exercise.id}-${idx}`}
-              className="flex items-center justify-between rounded-xl bg-white/[0.04] border border-white/[0.05] px-2.5 py-1.5"
+              className="flex items-center justify-between rounded-2xl bg-white/[0.045] border border-white/[0.06] px-3 py-2"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-lg bg-cyan-400/15 font-mono-num text-[10px] font-bold text-cyan-200">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cyan-400/15 font-mono-num text-[11px] font-bold text-cyan-200">
                   {idx + 1}
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-xs font-semibold text-slate-100">
+                  <div className="truncate text-xs font-bold text-slate-100 leading-tight">
                     {item.exercise.shortName}
                     {item.adaptedReason && (
-                      <span className="ml-1.5 text-[10px] font-medium text-emerald-300">
+                      <span className="ml-1.5 text-[10px] font-semibold text-emerald-300">
                         · Protegido
                       </span>
                     )}
+                  </div>
+                  <div className="truncate text-[10px] text-slate-400 leading-tight mt-0.5">
+                    {item.exercise.equipmentLabel}
                   </div>
                 </div>
               </div>
@@ -271,7 +274,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   {item.exercise.isTimed ? 's' : ''}
                 </span>
                 {!item.exercise.isBodyweight && (
-                  <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-cyan-200">
+                  <span className="rounded-md bg-cyan-400/10 border border-cyan-400/20 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-200">
                     {item.recommendedWeightKg}kg
                   </span>
                 )}

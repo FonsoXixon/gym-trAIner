@@ -107,11 +107,17 @@ export function buildAdaptedSession(
       disabledEquipmentIds
     );
 
-    // Avoid duplicating an exercise already in the session
+    // Avoid duplicating an exercise already in the session (never picking one that triggers active discomfort)
     if (usedIds.has(exercise.id)) {
-      const fallback = original.alternatives
-        .map((id) => EXERCISES[id])
-        .find((ex) => ex && !usedIds.has(ex.id));
+      const isSafe = (ex: Exercise) =>
+        !usedIds.has(ex.id) &&
+        !disabledEquipmentIds.includes(ex.equipmentId) &&
+        !(ex.avoidWhenDiscomfort && ex.avoidWhenDiscomfort.some((z) => checkIn.discomfort.includes(z)));
+
+      const fallback =
+        original.alternatives.map((id) => EXERCISES[id]).find((ex) => ex && isSafe(ex)) ??
+        Object.values(EXERCISES).find((ex) => ex.category === original.category && isSafe(ex)) ??
+        Object.values(EXERCISES).find((ex) => isSafe(ex));
       if (fallback) {
         exercise = fallback;
       }
@@ -142,35 +148,35 @@ export function buildAdaptedSession(
         if (!exercise.isBodyweight && lastWeight + exercise.weightStepKg <= exercise.maxWeightKg) {
           recommendedWeightKg = lastWeight + exercise.weightStepKg;
           recommendedReps = exercise.repRange[0];
-          progressionNote = `Subimos +${exercise.weightStepKg} kg con seguridad`;
+          progressionNote = `Subimos +${exercise.weightStepKg} kg seguro`;
         } else {
           recommendedReps = Math.min(exercise.repRange[1], lastReps + (exercise.isTimed ? 5 : 2));
-          progressionNote = `Subimos un poco el reto (+${exercise.isTimed ? '5s' : '2 reps'})`;
+          progressionNote = `Subimos +${exercise.isTimed ? '5s' : '2 reps'}`;
         }
       } else if (lastEffort === 'ideal') {
         if (lastReps < exercise.repRange[1]) {
           recommendedReps = lastReps + (exercise.isTimed ? 5 : 1);
-          progressionNote = 'Mismo peso, +1 rep para afianzar';
+          progressionNote = 'Mismo peso, +1 rep';
         } else if (!exercise.isBodyweight && lastWeight + exercise.weightStepKg <= exercise.maxWeightKg) {
           recommendedWeightKg = lastWeight + exercise.weightStepKg;
           recommendedReps = exercise.repRange[0];
-          progressionNote = `¡Listo para subir +${exercise.weightStepKg} kg!`;
+          progressionNote = `Listo para +${exercise.weightStepKg} kg`;
         } else {
-          progressionNote = 'Consolida esta marca perfecta';
+          progressionNote = 'Consolida esta marca';
         }
       } else if (lastEffort === 'hard') {
-        progressionNote = 'Mantenemos peso hasta sentirlo cómodo';
+        progressionNote = 'Mantenemos peso hoy';
       } else if (lastEffort === 'max') {
         if (!exercise.isBodyweight && lastWeight - exercise.weightStepKg >= exercise.minWeightKg) {
           recommendedWeightKg = lastWeight - exercise.weightStepKg;
-          progressionNote = 'Bajamos un paso para técnica limpia';
+          progressionNote = 'Bajamos 1 paso seguro';
         } else {
           recommendedReps = Math.max(exercise.repRange[0], lastReps - 2);
-          progressionNote = 'Suavizamos repeticiones por seguridad';
+          progressionNote = 'Suavizamos repeticiones';
         }
       }
     } else {
-      progressionNote = 'Peso inicial seguro para aprender el gesto';
+      progressionNote = 'Peso inicial seguro';
     }
 
     // Soften slightly on low energy day

@@ -1168,7 +1168,7 @@ export const ExerciseDiagram: React.FC<ExerciseDiagramProps> = ({ exercise }) =>
               transition={{ duration: 0.22 }}
               className="relative h-full w-full flex flex-col items-center justify-center"
             >
-              <svg viewBox="0 0 300 192" className="h-full max-h-[210px] w-full">
+              <svg viewBox="0 0 300 192" className="flex-1 min-h-0 max-h-[250px] w-full">
                 <defs>
                   <radialGradient id="activeZone" cx="50%" cy="50%" r="50%">
                     <stop offset="0%" stopColor="#00F5D4" stopOpacity="0.65" />
@@ -1320,22 +1320,22 @@ export const ExerciseDiagram: React.FC<ExerciseDiagramProps> = ({ exercise }) =>
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.2 }}
-              className="flex h-full w-full flex-col justify-between pt-2"
+              className="flex h-full w-full flex-col justify-center gap-3 pt-2"
             >
               {/* Visual alignment comparison SVG */}
-              <svg viewBox="0 0 280 142" className="w-full max-h-[126px]">
+              <svg viewBox="0 0 280 156" className="w-full flex-1 min-h-0 max-h-[195px]">
                 {/* Left: GOOD */}
                 <rect
                   x="8"
-                  y="6"
+                  y="4"
                   width="126"
-                  height="130"
+                  height="148"
                   rx="16"
                   fill="rgba(34, 197, 94, 0.08)"
                   stroke="rgba(34, 197, 94, 0.35)"
                   strokeWidth="1.2"
                 />
-                <text x="71" y="24" textAnchor="middle" fill="#4ADE80" fontSize="11" fontWeight="700">
+                <text x="71" y="23" textAnchor="middle" fill="#4ADE80" fontSize="11" fontWeight="700">
                   ✓ POSTURA SEGURA
                 </text>
                 <path
@@ -1350,15 +1350,15 @@ export const ExerciseDiagram: React.FC<ExerciseDiagramProps> = ({ exercise }) =>
                 {/* Right: AVOID */}
                 <rect
                   x="146"
-                  y="6"
+                  y="4"
                   width="126"
-                  height="130"
+                  height="148"
                   rx="16"
                   fill="rgba(244, 63, 94, 0.08)"
                   stroke="rgba(244, 63, 94, 0.35)"
                   strokeWidth="1.2"
                 />
-                <text x="209" y="24" textAnchor="middle" fill="#FB7185" fontSize="11" fontWeight="700">
+                <text x="209" y="23" textAnchor="middle" fill="#FB7185" fontSize="11" fontWeight="700">
                   ✕ ERROR A EVITAR
                 </text>
                 <path
@@ -1381,8 +1381,8 @@ export const ExerciseDiagram: React.FC<ExerciseDiagramProps> = ({ exercise }) =>
               </svg>
 
               {/* 2-column visual pills, zero long paragraphs */}
-              <div className="grid grid-cols-2 gap-2 mt-1.5">
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/25 p-2 space-y-1">
+              <div className="grid shrink-0 grid-cols-2 gap-2">
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/25 p-2.5 space-y-1.5">
                   {exercise.goodForm.map((c, idx) => (
                     <div key={idx} className="flex items-start gap-1.5 text-[11px] leading-tight text-emerald-100">
                       <span className="text-emerald-400 font-bold">✓</span>
@@ -1390,7 +1390,7 @@ export const ExerciseDiagram: React.FC<ExerciseDiagramProps> = ({ exercise }) =>
                     </div>
                   ))}
                 </div>
-                <div className="rounded-xl bg-rose-500/10 border border-rose-400/25 p-2 space-y-1">
+                <div className="rounded-xl bg-rose-500/10 border border-rose-400/25 p-2.5 space-y-1.5">
                   {exercise.avoidForm.map((c, idx) => (
                     <div key={idx} className="flex items-start gap-1.5 text-[11px] leading-tight text-rose-100">
                       <span className="text-rose-400 font-bold">✕</span>
@@ -1409,15 +1409,15 @@ export const ExerciseDiagram: React.FC<ExerciseDiagramProps> = ({ exercise }) =>
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="flex h-full w-full flex-col items-center justify-between pt-1"
+              className="flex h-full w-full flex-col items-center justify-center gap-3 pt-1"
             >
-              <div className="h-[155px] w-full">
+              <div className="flex-1 min-h-0 max-h-[225px] w-full">
                 <MuscleMapSvg
                   primary={exercise.primaryMuscles}
                   secondary={exercise.secondaryMuscles}
                 />
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-1.5">
+              <div className="flex shrink-0 flex-wrap items-center justify-center gap-1.5">
                 {exercise.primaryMuscles.map((m) => (
                   <span
                     key={m}
